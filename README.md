@@ -107,9 +107,9 @@ Let's say you own a domain called foo.com, would it be nice to map each printer 
 nginx to the rescue. 
 I run nginx like so:
 
-'''
+```
 docker run  -v /home/erez/nginx/nginx.conf:/etc/nginx/nginx.conf  --net host  -dit --restart unless-stopped nginx
-'''
+```
 
 Notice the --net host argument, there is probably a better way to that, probably with docker-compose, but I wanted nginx to connect to the containers running on the host "directly" so I gave it the host network stack. nginx file is included in this project.
 Not exactly nginx poetry but it does work.
