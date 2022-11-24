@@ -1,5 +1,7 @@
-As of 2022, Raspberri PI units are almost impossible to find at a reasonable cost, if at all.
-If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi, needs some revisitng.
+# OctoPrint for Multiple Printers: How to Get It Working
+
+As of 2022, Raspberri PI units are almost impossible to find at a reasonable cost, if at all. If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi, needs some revisitng.
+We need to run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that need addressed.
 
 Say we wish to control 3d printers, called "mini1" and "mini2" amd "mk3s".
 
@@ -28,13 +30,12 @@ Everything is self explanatory.  The only "twist" is this part:
 ```
 
 The container needs to have device mapped for it to be avaible internally. 
-What is wrong with the example from the docker hub page /dev/ttyACM0:/dev/ttyACM0) ?
-Allocating the ACM0/ACM1/ACM2 is basically a musical chair game between available ports and connection order.
+Allocation of ACM0/ACM1/ACM2/... is basically a musical chair game between available ports and connection order.
 (This is not a big deal when you have a single host connected to one printer, that is alsmot guaranteed to be ACM0)
 
 
-The solution is to add udev mapping rules that would:
-1) unqieuly identify the decice you wish to control
+
+## unqieuly identify the decice you wish to control
 Run the follwoing command for each of the ACM0/.../ACMn devices 
 ```
 udevadm info -a -p $(udevadm info -q path -n /dev/ttyACM0) 
@@ -58,14 +59,17 @@ Scroll down a bit and you should find the block that for the device.
 ATTRS{idVendor}=="2c99" is the vendor id for Prusa Research
 ATTRS{serial}=="CZPX0522X017XC11111"  uniquely identify the device.
 
-2) assign it a unique name
-3) restart the docker when that device is (re)connected. The reason for that is that the unique name is a symlink, and when a docker is started with device maping, symlinks are de-referenced to the underlying device (ACM) so without restarting the docker, the musical chair problems remains. Since I disconnet/reconnect printers less than once a day, the docker restart overhead is a non-issue.
+## create approritate udev rules
 
-Example udev rule file:, I called it 
+Create a customer rule file in /etc/udev/rules.d/
+
+```
+vi /etc/udev/rules.d/3d.rules 
+```
+
+example:
 
 ``` 
-cat /etc/udev/rules.d/3d.rules 
-
 KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX0522X017XC11111", SYMLINK="ttyMINI1", RUN="/usr/bin/docker restart mini1"
 
 KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX1022X017XC22222", SYMLINK="ttyMINI2", RUN="/usr/bin/docker restart mini2"
@@ -73,8 +77,30 @@ KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}
 KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX3021X004XC33333", SYMLINK="ttyMK3S1", RUN="/usr/bin/docker restart mk3s1"
 ```
 
+explanation
 
-Make sure that the docker names exactly match the dockers you started earlier.
+```
+KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX0522X017XC11111"
+```
+
+identfies the device
+
+
+```
+SYMLINK="ttyMINI1"
+```
+
+Assignes a unique name, but is a symlink. When a docker is lanuched with a symlink as a mapped device, the symlink is derefenced, which means if the device is disconnected, reconnected and gets a different name, the underlying ACM device will still be in use in the container.
+
+So to avoid that confusion:
+'''
+RUN="/usr/bin/docker restart mini1"
+'''
+
+This part restarts the container running octoprint, so it would always use the correct device.
+This happens in most cases less than once a day, so the restart overhead is negliable, but this could be more efficient with clever scripting that can keep track if the mapping actually changed. I am satisified at this point.
+
+
 
 save the file and either reboot or (better) just reload the rules:
 ```
