@@ -106,6 +106,7 @@ Let's say you own a domain called foo.com, would it be nice to map each printer 
 
 nginx to the rescue. 
 I run nginx like so:
+
 '''
 docker run  -v /home/erez/nginx/nginx.conf:/etc/nginx/nginx.conf  --net host  -dit --restart unless-stopped nginx
 '''
