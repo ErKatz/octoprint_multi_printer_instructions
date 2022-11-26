@@ -6,8 +6,8 @@ KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}
 
 
 
-KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540011", SYMLINK="videoMINI1", RUN="/usr/bin/docker restart mini1"
+KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540011", SYMLINK="videoMINI1", RUN="/usr/bin/docker restart video_mini1"   
 
-KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart mini2"
+KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart video_mini2"
 
-KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540DD3", SYMLINK="videoMK3S1", RUN="/usr/bin/docker restart mk3s1"
+KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540DD3", SYMLINK="videoMK3S1", RUN="/usr/bin/docker restart video_mk3s1"
