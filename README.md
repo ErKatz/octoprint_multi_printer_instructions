@@ -108,14 +108,14 @@ However, when a docker contianer is started with a symlink as a mapped device, *
 So to avoid that confusion, the container is restart "clean". 
 The overhead is minimal and in most application, devices get connected/disconnected at most once a day (if at all)
 
-'''
+```
 RUN="/usr/bin/docker restart mini1"
-'''
+```
 
-save the file and either reboot or (better) just reload the rules:
+save the file and either reboot or just reload the rules:
 
 ```
-   sudo udevadm control --reload-rules
+sudo udevadm control --reload-rules
 ```
 
 The rules will apply for newly connected devices - so if you didn't reboot - disconnect and reconenct the devices.
@@ -165,7 +165,6 @@ For example, the above command to start mini2 would change to:
 ```
 docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name mini2 -dit --restart unless-stopped  octoprint/octoprint
 ```
-
 
 
 
