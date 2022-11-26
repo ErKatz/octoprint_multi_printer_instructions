@@ -3,7 +3,7 @@
 As of 2022, Raspberri PI units are almost impossible to find at a reasonable cost, if at all. 
 If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi needs a second thought.
 
-To run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that must be addressed, otherwise things might work fine for a while... then got nuts when you reboot the system or disconenct and reconnect devices at an arbitrary order.
+To run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that must be addressed, otherwise things might work fine for a while... then get nuts when you reboot the system or disconenct and reconnect devices at an arbitrary order.
 
 For this, lets say we wish to control 3d printers, called "mini1" and "mini2" amd "mk3s".
 
@@ -20,11 +20,11 @@ docker volume create octoprint_mk3s1
 Start the containers:
 
 ```
-docker run -p 5100:80 -v octoprint_mini1:/octoprint --device /dev/ttyMINI1:/dev/ttyACM0  --name mini1 -dit --restart unless-stopped    octoprint/octoprint
+docker run -p 5100:80 -v octoprint_mini1:/octoprint --device /dev/ttyMINI1:/dev/ttyACM0  --name mini1 -dit --restart unless-stopped octoprint/octoprint
 
-docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0  --name mini2 -dit --restart unless-stopped  octoprint/octoprint
+docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0  --name mini2 -dit --restart unless-stopped octoprint/octoprint
 
-docker run -p 5300:80 -v octoprint_mk3s1:/octoprint --device /dev/ttyMK3S1:/dev/ttyACM0  --name mk3s -dit --restart unless-stopped  octoprint/octoprint
+docker run -p 5300:80 -v octoprint_mk3s1:/octoprint --device /dev/ttyMK3S1:/dev/ttyACM0  --name mk3s1 -dit --restart unless-stopped  octoprint/octoprint
 ```
 
 
@@ -37,7 +37,7 @@ The only deviation from the documentaiton is in device mapping:
 
 The container needs to have device mapped for it to be avaible internally. 
 The way linux mangages usb devices, they get allcoated their nubmer based on availability and connection order. 
-That is basically a recipie for a muscial chair game, which is ok when you have one chair and one player (i.e. one rpi per printer) but not really when you try to manag multiple devices.
+That is basically a recipie for a muscial chair game, which is ok when you have one chair and one player (i.e. one rpi per printer) but not really when you try to manage multiple devices.
 
 If the servers are running and you disconnect the printers and reconnect them in a different order, the servers would use the original device number.
 This could be very problematic when each printer is different or has different filament with its specific settings.
@@ -103,10 +103,10 @@ This tells the udev system to create a symlynk with that name pointing to the de
 SYMLINK="ttyMINI1"
 ```
 
-However, when a docker contianer is started with a symlink as a mapped device, **the symlink is derefenced**, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be used by in the container (same musical chair game goes on!).
+However, when a docker contianer is started with a symlink as a mapped device, **the symlink is derefenced**, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be used by the container (same musical chair game goes on!).
 
 So to avoid that confusion, the container is restarted "clean". 
-The overhead is minimal and in most application, devices get connected/disconnected at most once a day (if at all)
+The overhead is minimal and in most applications devices get connected/disconnected at most once a day (if at all)
 
 ```
 RUN="/usr/bin/docker restart mini1"
@@ -133,9 +133,9 @@ lrwxrwxrwx   1 root root           7 Nov 15 13:44 ttyMK3S1 -> ttyACM1
 ```
 
 
-## Adding support for webcams
+## Webcams
 
-Here is an example udev rule that pin-points a symlink to a camera, similar to the ACM rule above:
+Here is an example udev rule that creates a unique symlink for each camera, similar to the ACM rule above:
 
 ```
 KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart video_mini2"
@@ -165,7 +165,7 @@ It is better to run a separate container for webcam functionality, because if we
 docker run -p 5250:80 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name video_mini2 -dit --restart unless-stopped  octoprint/octoprint
 ```
 
-While this runs the webcam service on a different port, we could (and should) put nginx infront of the two services and present them as one.
+While this runs the webcam service on a different port, we could (and should) put nginx infront of the two services and present them as one. The next section discusses nginx.
 
 
 ## Last but not least
@@ -177,11 +177,12 @@ http://10.0.2.22:5300
 Let's say you own a domain called foo.com, would it be nice to map each printer to http://mini1.foo.com, http://mini2.foo.com, http://mk3s1.foo.com ?
 
 nginx to the rescue. 
-I run nginx like so:
+example for running nginx :
 
 ```
 docker run  -v /home/erez/nginx/nginx.conf:/etc/nginx/nginx.conf  --net host  -dit --restart unless-stopped nginx
 ```
 
-Notice the --net host argument, there is probably a better way to that, probably with docker-compose, but I wanted nginx to connect to the containers running on the host "directly" so I gave it the host network stack. nginx file is included in this project.
+Notice the --net host argument, there is probably a better way to that (docker-compose).
+A sample nginx.conf file is included in this repo.
 
