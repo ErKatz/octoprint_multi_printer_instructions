@@ -138,7 +138,7 @@ lrwxrwxrwx   1 root root           7 Nov 15 13:44 ttyMK3S1 -> ttyACM1
 Here is an example udev rule that pin-points a symlink to a camera, similar to the ACM rule above:
 
 ```
-KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart mini2"
+KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart video_mini2"
 ```
 
 In this case it is a Logitech camera (ATTRS{idVendor}=="046d")
@@ -159,13 +159,13 @@ crw-rw----+ 1 root video 81, 1 Nov 25 19:43 /dev/video1
 lrwxrwxrwx  1 root root      6 Nov 25 19:43 /dev/videoMINI2 -> video0
 ```
 
-In order to use the camera, the device should be mapped and the ENABLE_MJPG_STREAMER environment variable should be set to true.
-For example, the above command to start mini2 would change to:
+It is better to run a separate container for webcam functionality, because if we connect/reconnect the camera in the middle of a long print, we don't want to restart the octoprint instance that is managing that print. 
 
 ```
-docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name mini2 -dit --restart unless-stopped  octoprint/octoprint
+docker run -p 5250:80 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name video_mini2 -dit --restart unless-stopped  octoprint/octoprint
 ```
 
+While this runs the webcam service on a different port, we could (and should) put nginx infront of the two services and present them as one.
 
 
 ## Last but not least
