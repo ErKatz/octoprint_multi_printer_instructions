@@ -1,13 +1,14 @@
 # OctoPrint for Multiple Printers: How to Get It Working
 
-As of 2022, Raspberri PI units are almost impossible to find at a reasonable cost, if at all. If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi, needs some revisitng.
-We need to run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that need addressed.
+As of 2022, Raspberri PI units are almost impossible to find at a reasonable cost, if at all. 
+If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi is not very practical.
 
-Say we wish to control 3d printers, called "mini1" and "mini2" amd "mk3s".
+To run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that need addressed.
+For this, lets say we wish to control 3d printers, called "mini1" and "mini2" amd "mk3s".
 
 ### Run Octoprint in docker containers
 
-create 3 docker volumes (first time):
+create 3 docker volumes (first time only):
 
 ```
 docker volume create octoprint_mini1
@@ -20,12 +21,13 @@ Start the containers:
 ```
 docker run -p 5100:80 -v octoprint_mini1:/octoprint --device /dev/ttyMINI1:/dev/ttyACM0  --name mini1 -dit --restart unless-stopped    octoprint/octoprint
 
-docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0   --name mini2 -dit --restart unless-stopped  octoprint/octoprint
+docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0  --name mini2 -dit --restart unless-stopped  octoprint/octoprint
 
-docker run -p 5300:80 -v octoprint_mk3s1:/octoprint --device /dev/ttyMK3S1:/dev/ttyACM0   --name mk3s -dit --restart unless-stopped  octoprint/octoprint
+docker run -p 5300:80 -v octoprint_mk3s1:/octoprint --device /dev/ttyMK3S1:/dev/ttyACM0  --name mk3s -dit --restart unless-stopped  octoprint/octoprint
 ```
 
-Everything is self explanatory.  The only "twist" is this part:
+
+Everything is self explanatory.  The only deviation from the docker humb documentaiton is in the device mapping:
 
 ```
  --device /dev/ttyMINI1:/dev/ttyACM0
@@ -33,11 +35,11 @@ Everything is self explanatory.  The only "twist" is this part:
 
 The container needs to have device mapped for it to be avaible internally. 
 Allocation of ACM0/ACM1/ACM2/... is basically a musical chair game between available ports and connection order.
-(This is not a big deal when you have a single host connected to one printer, that is alsmot guaranteed to be ACM0)
+If the servers are running and you disconnect the printers and reconnect them in a different order, the servers would use the original device number.
+This could be very problematic when each printer is different or has different filament with its specific settings.
+The device we map to a container must be unique. 
 
-
-
-### Unqieuly identify the decice you wish to control
+### How to unqieuly identify the decice you wish to control
 Run the follwoing command for each of the ACM0/.../ACMn devices 
 ```
 udevadm info -a -p $(udevadm info -q path -n /dev/ttyACM0) 
@@ -66,7 +68,7 @@ Take note of the attributes you wish to use in order to identify the device when
 
 ### Create approritate udev rules
 
-Create a customer rule file in /etc/udev/rules.d/
+Create a custom rule file in /etc/udev/rules.d/
 
 ```
 vi /etc/udev/rules.d/3d.rules 
@@ -90,17 +92,15 @@ The first part identifies the device:
 KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX0522X017XC11111"
 ```
 
-
 This tells the udev system to create a new symlynk with that name pointing to the devie
 
 ```
 SYMLINK="ttyMINI1"
 ```
 
-However, when a docker contianer is started with a symlink as a mapped device, the symlink is derefenced, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be in by in the container (musical chair continues).
+However, when a docker contianer is started with a symlink as a mapped device, the symlink is derefenced, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be used by in the container (same musical chair game).
 
-
-So to avoid that confusion, just restart the container. The overhead is minimal and in most application, devices get connected/disconnected once a da.
+So to avoid that confusion, just restart the container. The overhead is minimal and in most application, devices get connected/disconnected once a day at most on average, hence:
 
 '''
 RUN="/usr/bin/docker restart mini1"
@@ -112,7 +112,10 @@ save the file and either reboot or (better) just reload the rules:
    sudo udevadm control --reload-rules
 ```
 
+The rules will apply after you disconnect and reconnect  the devices (or reboot).
+
 You can view the assignment of symlinks to devices, and just for fun, disconnect them all and reconnect them in a different order and see how the linking changes - that is why the dockers need to be restarted.
+
 ```
 ls -l /dev/ | grep ACM
 crw-rw----   1 root dialout 166,   0 Nov 15 13:39 ttyACM0
@@ -122,6 +125,42 @@ lrwxrwxrwx   1 root root           7 Nov 15 13:39 ttyMINI1 -> ttyACM0
 lrwxrwxrwx   1 root root           7 Nov 15 13:39 ttyMINI2 -> ttyACM2
 lrwxrwxrwx   1 root root           7 Nov 15 13:44 ttyMK3S1 -> ttyACM1
 ```
+
+
+## Adding support for webcams
+
+here is an example udev rule that pin-points a symlink to a camera, similar to the ACM rule above:
+```
+KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart mini2"
+```
+
+In this case it is a Logitech camera (ATTRS{idVendor}=="046d")
+It is crucial to specify ATTR{index}=="0", because for each plugged camera, two /dev/video devices are created, one is the actual device and the other is a metadata provider. 
+
+With that in mind run the follwoing command (simillar to above) for each of the video0/.../videon devices to get the correct idVendor and serial number values.
+
+```
+udevadm info -a -p $(udevadm info -q path -n /dev/video0) 
+```
+
+Properly configured, you should see the mapping as follows:
+
+```
+ll /dev/vid*
+crw-rw----+ 1 root video 81, 0 Nov 25 19:43 /dev/video0
+crw-rw----+ 1 root video 81, 1 Nov 25 19:43 /dev/video1
+lrwxrwxrwx  1 root root      6 Nov 25 19:43 /dev/videoMINI2 -> video0
+```
+
+In order to use the camera, the device should be mapped and the ENABLE_MJPG_STREAMER environment variable should be set to true.
+For example, the above command to start mini2 would change to:
+
+```
+docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/ttyACM0 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name mini2 -dit --restart unless-stopped  octoprint/octoprint
+```
+
+
+
 
 
 ### Last but not least
