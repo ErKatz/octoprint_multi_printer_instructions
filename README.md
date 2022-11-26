@@ -1,9 +1,10 @@
 # OctoPrint for Multiple Printers: How to Get It Working
 
 As of 2022, Raspberri PI units are almost impossible to find at a reasonable cost, if at all. 
-If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi is not very practical.
+If you have multiple 3d printers to control, the 1-1 model of server per printer that relied on rpi needs a second thought.
 
-To run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that need addressed.
+To run multiple octoprint server instances, docker is a very reasonable option, but there are a few subtleties that must be addressed, otherwise things might work fine for a while... then got nuts when you reboot the system or disconenct and reconnect devices at an arbitrary order.
+
 For this, lets say we wish to control 3d printers, called "mini1" and "mini2" amd "mk3s".
 
 ### Run Octoprint in docker containers
@@ -27,19 +28,23 @@ docker run -p 5300:80 -v octoprint_mk3s1:/octoprint --device /dev/ttyMK3S1:/dev/
 ```
 
 
-Everything is self explanatory.  The only deviation from the docker humb documentaiton is in the device mapping:
+Everything is self explanatory and was taken from the documentation on docker hub.
+The only deviation from the documentaiton is in device mapping:
 
 ```
  --device /dev/ttyMINI1:/dev/ttyACM0
 ```
 
 The container needs to have device mapped for it to be avaible internally. 
-Allocation of ACM0/ACM1/ACM2/... is basically a musical chair game between available ports and connection order.
+The way linux mangages usb devices, they get allcoated their nubmer based on availability and connection order. 
+That is basically a recipie for a muscial chair game, which is ok when you have one chair and one player (i.e. one rpi per printer) but not really when you try to manag multiple devices.
+
 If the servers are running and you disconnect the printers and reconnect them in a different order, the servers would use the original device number.
 This could be very problematic when each printer is different or has different filament with its specific settings.
-The device we map to a container must be unique. 
+**The device mapped to a container must be unique!**
 
-### How to unqieuly identify the decice you wish to control
+
+## How to unqieuly identify the decice you wish to control
 Run the follwoing command for each of the ACM0/.../ACMn devices 
 ```
 udevadm info -a -p $(udevadm info -q path -n /dev/ttyACM0) 
@@ -66,7 +71,7 @@ ATTRS{serial}=="CZPX0522X017XC11111"  uniquely identify the device.
 Take note of the attributes you wish to use in order to identify the device when it is connected.
 
 
-### Create approritate udev rules
+## Create approritate udev rules
 
 Create a custom rule file in /etc/udev/rules.d/
 
@@ -84,7 +89,7 @@ KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}
 KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX3021X004XC33333", SYMLINK="ttyMK3S1", RUN="/usr/bin/docker restart mk3s1"
 ```
 
-## explanation
+**explanation:** 
 
 The first part identifies the device:
 
@@ -92,15 +97,16 @@ The first part identifies the device:
 KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="2c99", ATTRS{serial}=="CZPX0522X017XC11111"
 ```
 
-This tells the udev system to create a new symlynk with that name pointing to the devie
+This tells the udev system to create a symlynk with that name pointing to the devie
 
 ```
 SYMLINK="ttyMINI1"
 ```
 
-However, when a docker contianer is started with a symlink as a mapped device, the symlink is derefenced, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be used by in the container (same musical chair game).
+However, when a docker contianer is started with a symlink as a mapped device, **the symlink is derefenced**, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be used by in the container (same musical chair game goes on!).
 
-So to avoid that confusion, just restart the container. The overhead is minimal and in most application, devices get connected/disconnected once a day at most on average, hence:
+So to avoid that confusion, the container is restart "clean". 
+The overhead is minimal and in most application, devices get connected/disconnected at most once a day (if at all)
 
 '''
 RUN="/usr/bin/docker restart mini1"
@@ -112,7 +118,7 @@ save the file and either reboot or (better) just reload the rules:
    sudo udevadm control --reload-rules
 ```
 
-The rules will apply after you disconnect and reconnect  the devices (or reboot).
+The rules will apply for newly connected devices - so if you didn't reboot - disconnect and reconenct the devices.
 
 You can view the assignment of symlinks to devices, and just for fun, disconnect them all and reconnect them in a different order and see how the linking changes - that is why the dockers need to be restarted.
 
@@ -129,13 +135,14 @@ lrwxrwxrwx   1 root root           7 Nov 15 13:44 ttyMK3S1 -> ttyACM1
 
 ## Adding support for webcams
 
-here is an example udev rule that pin-points a symlink to a camera, similar to the ACM rule above:
+Here is an example udev rule that pin-points a symlink to a camera, similar to the ACM rule above:
+
 ```
 KERNEL=="video[0-9]*",  SUBSYSTEM=="video4linux",ATTR{index}=="0", ATTRS{idVendor}=="046d", ATTRS{serial}=="2D540000", SYMLINK="videoMINI2", RUN="/usr/bin/docker restart mini2"
 ```
 
 In this case it is a Logitech camera (ATTRS{idVendor}=="046d")
-It is crucial to specify ATTR{index}=="0", because for each plugged camera, two /dev/video devices are created, one is the actual device and the other is a metadata provider. 
+It is crucial to specify ATTR{index}=="0", because for each camera, 2 /dev/video devices are created, one is the actual device and the other is a metadata provider. 
 
 With that in mind run the follwoing command (simillar to above) for each of the video0/.../videon devices to get the correct idVendor and serial number values.
 
@@ -162,8 +169,7 @@ docker run -p 5200:80 -v octoprint_mini2:/octoprint --device /dev/ttyMINI2:/dev/
 
 
 
-
-### Last but not least
+## Last but not least
 Now we have 3 servers running on the following addresses
 http://10.0.2.22:5100
 http://10.0.2.22:5200
