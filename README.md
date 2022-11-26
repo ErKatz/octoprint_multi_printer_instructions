@@ -105,7 +105,7 @@ SYMLINK="ttyMINI1"
 
 However, when a docker contianer is started with a symlink as a mapped device, **the symlink is derefenced**, which means if the device is disconnected, reconnected and gets a different name, the previous underlying ACM device will still be used by in the container (same musical chair game goes on!).
 
-So to avoid that confusion, the container is restart "clean". 
+So to avoid that confusion, the container is restarted "clean". 
 The overhead is minimal and in most application, devices get connected/disconnected at most once a day (if at all)
 
 ```
