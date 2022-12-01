@@ -178,7 +178,7 @@ docker run --name video_mini2 \
            -e MJPG_STREAMER_INPUT='-y -r 640x480 -f 15' \
            -dit --restart unless-stopped octoprint/octoprint
 ```
-it is important to keep the -y flag that forces YUYV format, because the modprob quirk setting does not apply to compressed streams. 
+it is important to keep the -y flag that forces YUYV format, because the quirk setting does not apply to compressed streams. 
 
 ## Last but not least
 Now we have 3 servers running on the following addresses
