@@ -165,8 +165,20 @@ It is better to run a separate container for webcam functionality, because if we
 docker run -p 5250:80 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name video_mini2 -dit --restart unless-stopped  octoprint/octoprint
 ```
 
-While this runs the webcam service on a different port, we could (and should) put nginx infront of the two services and present them as one. The next section discusses nginx.
+if you are getting an "no space left on device" error, it means the cameras try to grab more (USB) bandwidth than available, which is 480Mb total per controller for USB2.0 devices (even if it is USB3.0 controller and a USB3.0 hub, USB3.0 are dual, and USB2.0 don't the 5gb bandwidth that is only available to USB3.0 devices).
 
+If you can move one camera to a different controller - great. If you don't have enough controllers, then 2 things need to take place.
+1) follow the instructions here: https://stackoverflow.com/questions/11394712/libv4l2-error-turning-on-stream-no-space-left-on-device/26523421#26523421
+2) change the docker launch command so it uses less bandwidth by adding -e MJPG_STREAMER_INPUT='-y -r 640x480 -f 15' to the docker run command so it is like
+
+```
+docker run --name video_mini2 \
+           -p 5250:80 \
+           --device /dev/videoMINI2:/dev/video0 \
+           -e ENABLE_MJPG_STREAMER=true  \
+           -e MJPG_STREAMER_INPUT='-y -r 640x480 -f 15' \
+           -dit --restart unless-stopped octoprint/octoprint
+```
 
 ## Last but not least
 Now we have 3 servers running on the following addresses
