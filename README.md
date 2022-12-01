@@ -169,8 +169,7 @@ if you are getting a "no space left on device" error, it means the cameras try t
 
 If you can move one camera to a different controller - great. If you don't have enough controllers, then 2 things need to take place.
 1) follow the instructions here: https://stackoverflow.com/questions/11394712/libv4l2-error-turning-on-stream-no-space-left-on-device/26523421#26523421
-2) change the docker launch command so it uses less bandwidth by adding -e MJPG_STREAMER_INPUT='-y -r 640x480 -f 15' to the docker run command so it is like
-
+2) change the docker launch command so it uses less bandwidth by adding -e MJPG_STREAMER_INPUT='-y -r 640x480 -f 15' to the docker run command:
 ```
 docker run --name video_mini2 \
            -p 5250:80 \
