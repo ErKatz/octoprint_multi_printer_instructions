@@ -165,7 +165,7 @@ It is better to run a separate container for webcam functionality, because if we
 docker run -p 5250:80 --device /dev/videoMINI2:/dev/video0 -e ENABLE_MJPG_STREAMER=true --name video_mini2 -dit --restart unless-stopped  octoprint/octoprint
 ```
 
-if you are getting an "no space left on device" error, it means the cameras try to grab more (USB) bandwidth than available, which is 480Mb total per controller for USB2.0 devices (even if it is USB3.0 controller and a USB3.0 hub, USB3.0 are dual, and USB2.0 don't the 5gb bandwidth that is only available to USB3.0 devices).
+if you are getting a "no space left on device" error, it means the cameras try to grab more (USB) bandwidth than available, which is 480Mb total per controller for USB2.0 devices (even if it is USB3.0 controller and a USB3.0 hub, USB3.0 controllers are dual USB3/USB2, and the USB2.0 devcices don't the to use the 5Gb bandwidth that is only available to USB3.0 devices).
 
 If you can move one camera to a different controller - great. If you don't have enough controllers, then 2 things need to take place.
 1) follow the instructions here: https://stackoverflow.com/questions/11394712/libv4l2-error-turning-on-stream-no-space-left-on-device/26523421#26523421
@@ -179,6 +179,7 @@ docker run --name video_mini2 \
            -e MJPG_STREAMER_INPUT='-y -r 640x480 -f 15' \
            -dit --restart unless-stopped octoprint/octoprint
 ```
+it is important to keep the -y flag that forces YUYV format, because the modprob quirk setting does not apply to compressed streams. 
 
 ## Last but not least
 Now we have 3 servers running on the following addresses
